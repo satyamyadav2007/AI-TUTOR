@@ -8,3 +8,4 @@ google-generativeai
 pillow
 langchain-huggingface
 streamlit-ace
+torchvision
