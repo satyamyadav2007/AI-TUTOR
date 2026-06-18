@@ -1,0 +1,8 @@
+langchain 
+langchain-community
+chromadb
+pypdf
+sentence-transformer
+streamlit
+google-generativeai
+pillow
