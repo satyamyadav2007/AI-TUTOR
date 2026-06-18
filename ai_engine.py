@@ -6,7 +6,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.llms import Ollama
 from models import QuestionModel
-from langchain_community.chat_models import ChatOllama
+
 from langchain_core.messages import HumanMessage
 
 def load_brains():
