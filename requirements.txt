@@ -6,3 +6,5 @@ sentence-transformers
 streamlit
 google-generativeai
 pillow
+langchain-huggingface
+streamlit-ace
