@@ -2,7 +2,7 @@ langchain
 langchain-community
 chromadb
 pypdf
-sentence-transformer
+sentence-transformers
 streamlit
 google-generativeai
 pillow
