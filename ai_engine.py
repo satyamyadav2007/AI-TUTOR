@@ -199,47 +199,59 @@ def generate_dsa_problem(topic, difficulty):
         return None
 
 def generate_pyq_variant(subject, topic, difficulty):
-    docs = pyq_db.similarity_search(f"Subject: {subject} Topic: {topic}", k=3)
-    if not docs:
-        return None
-        
-    selected_doc = random.choice(docs)
-    original_q_json = selected_doc.metadata.get("full_json")
-    if not original_q_json:
-        return None
-
-    prompt = f"""
-    Act as an Expert IIT GATE Computer Science Exam Setter. I am giving you a REAL past year question.
-    Your task is to create a BRAND NEW VARIANT of this question.
-    
-    STRICT RULES FOR THE NEW QUESTION:
-    1. Keep the CORE COMPUTER SCIENCE LOGIC and CONCEPT exactly the same.
-    2. Change the technical numerical values to create a new solvable problem.
-    3. FATAL ERROR WARNING: ABSOLUTELY NO questions about page numbers, chapters, textbooks. It MUST be a technical CSE problem.
-    4. Difficulty should be: {difficulty}.
-    
-    ORIGINAL QUESTION JSON:
-    {original_q_json}
-    
-    RETURN FORMAT (STRICT JSON ONLY):
-    {{
-        "type": "MCQ",
-        "topic": "{topic}",
-        "question": "<Write the newly generated technical variant here>",
-        "options": ["<Option 1 exact text>", "<Option 2 exact text>", "<Option 3 exact text>", "<Option 4 exact text>"],
-        "answer": "<Write the EXACT FULL TEXT of the correct option here. DO NOT write just A, B, C, or D>",
-        "explanation": "<Step-by-step technical derivation>"
-    }}
-    """
+    print(f"DEBUG: Starting generate_pyq_variant for {subject} - {topic}")
     try:
+        # Check if DB is loaded
+        docs = pyq_db.similarity_search(f"Subject: {subject} Topic: {topic}", k=3)
+        if not docs:
+            print("DEBUG: No docs found in pyq_db for this topic.")
+            return None
+            
+        selected_doc = random.choice(docs)
+        original_q_json = selected_doc.metadata.get("full_json")
+        if not original_q_json:
+            print("DEBUG: 'full_json' missing in selected document metadata.")
+            return None
+            
+        print("DEBUG: Successfully retrieved document from ChromaDB.")
+
+        prompt = f"""
+        Act as an Expert IIT GATE Computer Science Exam Setter. I am giving you a REAL past year question.
+        Your task is to create a BRAND NEW VARIANT of this question.
+        
+        STRICT RULES FOR THE NEW QUESTION:
+        1. Keep the CORE COMPUTER SCIENCE LOGIC and CONCEPT exactly the same.
+        2. Change the technical numerical values to create a new solvable problem.
+        3. FATAL ERROR WARNING: ABSOLUTELY NO questions about page numbers, chapters, textbooks. It MUST be a technical CSE problem.
+        4. Difficulty should be: {difficulty}.
+        
+        ORIGINAL QUESTION JSON:
+        {original_q_json}
+        
+        RETURN FORMAT (STRICT JSON ONLY):
+        {{
+            "type": "MCQ",
+            "topic": "{topic}",
+            "question": "<Write the newly generated technical variant here>",
+            "options": ["<Option 1 exact text>", "<Option 2 exact text>", "<Option 3 exact text>", "<Option 4 exact text>"],
+            "answer": "<Write the EXACT FULL TEXT of the correct option here. DO NOT write just A, B, C, or D>",
+            "explanation": "<Step-by-step technical derivation>"
+        }}
+        """
+        
         response = gemini_model.generate_content(prompt)
+        print(f"DEBUG: Gemini Response Received.")
+        
         parsed = extract_json(response.text.strip())
         if parsed:
             parsed["is_variant"] = True
             return parsed
-        return None
+        else:
+            print(f"DEBUG: extract_json failed to parse Gemini response: {response.text}")
+            return None
+            
     except Exception as e:
-        print(f"Variant generation failed: {e}")
+        print(f"Variant generation failed WITH ERROR: {e}")
         return None
 
 def generate_study_plan(elo_rating, weak_topics_dict, days=21):
