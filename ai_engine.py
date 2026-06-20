@@ -2,23 +2,35 @@ import json
 import re
 import random
 import hashlib
+import streamlit as st
+import google.generativeai as genai
+from PIL import Image
 from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.llms import Ollama
 from models import QuestionModel
 
-from langchain_core.messages import HumanMessage
+# ==========================================
+# 🚀 GLOBAL GEMINI SETUP (The New Brain)
+# ==========================================
+# Load API Key from Streamlit Secrets
+GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+genai.configure(api_key=GEMINI_API_KEY)
 
+# Initialize Gemini 2.0 Flash for all functions
+gemini_model = genai.GenerativeModel('models/gemini-2.0-flash')
+
+# ==========================================
+# 🧠 VECTOR DATABASE LOADER
+# ==========================================
 def load_brains():
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     theory_db = Chroma(persist_directory="./vector_db", embedding_function=embeddings)
     pyq_db = Chroma(persist_directory="./pyq_vector_db", embedding_function=embeddings)
     
-    # We switch to qwen2.5:7b or deepseek-r1:7b for premium logic
-    llm = Ollama(model="qwen2.5:7b") 
-    return theory_db, pyq_db, llm
+    return theory_db, pyq_db
 
-theory_db, pyq_db, llm = load_brains()
+# Load DBs (No more LLM returned from here)
+theory_db, pyq_db = load_brains()
 
 # ==========================================
 # 🛠️ HELPER: BULLETPROOF JSON PARSER
@@ -44,7 +56,7 @@ def extract_json(raw_text):
         return None
 
 # ==========================================
-# 🧠 CORE AI FUNCTIONS
+# 🧠 CORE AI FUNCTIONS (Now using Gemini)
 # ==========================================
 def verify_single_question(question_data, subject, difficulty):
     verification_prompt = f"""
@@ -57,13 +69,12 @@ def verify_single_question(question_data, subject, difficulty):
     RETURN ONLY: PASS or FAIL
     """
     try:
-        result = llm.invoke(verification_prompt).strip().upper()
+        result = gemini_model.generate_content(verification_prompt).text.strip().upper()
         return "PASS" in result
     except:
         return True
 
 def generate_single_question(subject, topic, difficulty, seen_hashes):
-    """Generates ONE high-quality GATE question and returns (data, hash)."""
     theory_docs = theory_db.similarity_search(f"{subject} {topic}", k=3)
     theory_context = "\n".join([d.page_content for d in theory_docs])
     
@@ -88,9 +99,8 @@ def generate_single_question(subject, topic, difficulty, seen_hashes):
     }}
     """
     try:
-        response = llm.invoke(prompt)
-        reply = response.strip() if isinstance(response, str) else response.content.strip()
-        parsed = extract_json(reply)
+        response = gemini_model.generate_content(prompt)
+        parsed = extract_json(response.text.strip())
         
         if parsed and "question" in parsed:
             q_hash = hashlib.md5(parsed["question"].encode()).hexdigest()
@@ -118,9 +128,8 @@ def generate_concept_only(subject, topic):
     }}
     """
     try:
-        response = llm.invoke(prompt)
-        reply = response.strip() if isinstance(response, str) else response.content.strip()
-        parsed = extract_json(reply)
+        response = gemini_model.generate_content(prompt)
+        parsed = extract_json(response.text.strip())
         if parsed and "concept_capsule" in parsed:
             parsed["concept_capsule"] = parsed["concept_capsule"].replace("\\n", "\n")
             return parsed
@@ -130,8 +139,6 @@ def generate_concept_only(subject, topic):
         return None
 
 def evaluate_dsa_code(problem_title, problem_desc, user_code, language="Python"):
-    """Evaluates the user's DSA code like a strict FAANG/LeetCode system."""
-    
     prompt = f"""
     Act as the LeetCode Online Judge and an Expert FAANG Interviewer.
     Evaluate the following {language} code for the given problem.
@@ -153,25 +160,21 @@ def evaluate_dsa_code(problem_title, problem_desc, user_code, language="Python")
     }}
     """
     try:
-        response = llm.invoke(prompt)
-        reply = response.strip() if isinstance(response, str) else response.content.strip()
-        return extract_json(reply)
+        response = gemini_model.generate_content(prompt)
+        return extract_json(response.text.strip())
     except Exception as e:
         print(f"Code evaluation failed: {e}")
         return None
 
 def generate_dsa_problem(topic, difficulty):
-    import random
-    # Random seed add karne se AI har baar naya rasta sochne pe majboor hoga
     seed = random.randint(1, 100000)
-    
     prompt = f"""
     Act as a strict FAANG Software Engineer. Generate a completely UNIQUE and RANDOM {difficulty} level DSA problem strictly focused on the topic: '{topic}'.
     Randomization Seed: {seed}.
     
     CRITICAL RULES:
-    1. The problem MUST heavily involve the concept of {topic} (e.g., if Dynamic Programming, generate Knapsack, Longest Increasing Subsequence, Coin Change, or a novel variation).
-    2. DO NOT COPY THE EXAMPLE PROVIDED BELOW. The example is ONLY for showing the JSON structure.
+    1. The problem MUST heavily involve the concept of {topic}.
+    2. DO NOT COPY THE EXAMPLE PROVIDED BELOW.
     
     RETURN FORMAT (STRICT JSON ONLY):
     {{
@@ -185,9 +188,8 @@ def generate_dsa_problem(topic, difficulty):
     }}
     """
     try:
-        response = llm.invoke(prompt)
-        reply = response.strip() if isinstance(response, str) else response.content.strip()
-        parsed = extract_json(reply)
+        response = gemini_model.generate_content(prompt)
+        parsed = extract_json(response.text.strip())
         if parsed and "starter_code" in parsed:
             parsed["starter_code"] = parsed["starter_code"].replace("\\n", "\n")
             return parsed
@@ -212,8 +214,8 @@ def generate_pyq_variant(subject, topic, difficulty):
     
     STRICT RULES FOR THE NEW QUESTION:
     1. Keep the CORE COMPUTER SCIENCE LOGIC and CONCEPT exactly the same.
-    2. Change the technical numerical values (e.g., memory addresses, process IDs, graph weights, string lengths) to create a new solvable problem.
-    3. FATAL ERROR WARNING: ABSOLUTELY NO questions about page numbers, chapters, textbooks, or syllabus structure. It MUST be a highly technical CSE problem.
+    2. Change the technical numerical values to create a new solvable problem.
+    3. FATAL ERROR WARNING: ABSOLUTELY NO questions about page numbers, chapters, textbooks. It MUST be a technical CSE problem.
     4. Difficulty should be: {difficulty}.
     
     ORIGINAL QUESTION JSON:
@@ -230,9 +232,8 @@ def generate_pyq_variant(subject, topic, difficulty):
     }}
     """
     try:
-        response = llm.invoke(prompt)
-        reply = response.strip() if isinstance(response, str) else response.content.strip()
-        parsed = extract_json(reply)
+        response = gemini_model.generate_content(prompt)
+        parsed = extract_json(response.text.strip())
         if parsed:
             parsed["is_variant"] = True
             return parsed
@@ -256,162 +257,25 @@ def generate_study_plan(elo_rating, weak_topics_dict, days=21):
         {{
             "day": 1,
             "focus_topic": "Cache Memory Mapping (Weakness)",
-            "tasks": [
-                "Watch AI Explanation for Cache Mapping",
-                "Read Short Notes",
-                "Solve 10 MCQs on Direct Mapping",
-                "Take Mini Topic Test"
-            ]
-        }},
-        {{
-            "day": 2,
-            "focus_topic": "Paging & Segmentation",
-            "tasks": [
-                "Revise Page Table Entries",
-                "Solve 5 PYQs on TLB",
-                "Review Mistakes"
-            ]
+            "tasks": ["Watch AI Explanation", "Read Short Notes", "Solve 10 MCQs"]
         }}
     ]
     """
     try:
-        response = llm.invoke(prompt)
-        reply = response.strip() if isinstance(response, str) else response.content.strip()
-        # Use our bulletproof JSON extractor
-        return extract_json(reply)
+        response = gemini_model.generate_content(prompt)
+        return extract_json(response.text.strip())
     except Exception as e:
         print(f"Study Plan failed: {e}")
         return None
 
-import google.generativeai as genai
-from PIL import Image
-
 def solve_doubt_from_image(image_file):
-    """Processes an uploaded image and solves the doubt using Google Gemini API."""
     print("📸 Analyzing Image Doubt using Google Gemini API...")
-    
     try:
-        # 1. Prepare Image
         img = Image.open(image_file)
         if img.mode != "RGB":
             img = img.convert("RGB")
             
-        # 2. Configure API Key
-        # YAHAN APNI COPIED API KEY PASTE KAREIN 👇
-        GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
-        genai.configure(api_key=GEMINI_API_KEY)
-        
-        # 3. Load Gemini 1.5 Flash (Added '-latest' to fix the 404 error)
-        model = genai.GenerativeModel('models/gemini-2.0-flash')
-        
-        # 4. Strict Master Prompt
         prompt = """
         Act as an Elite GATE CSE Mentor. Analyze this image very carefully.
         
         STEP 1: Transcribe the exact question text and mathematical formulas written in the image.
-        STEP 2: Identify the core subject (e.g., Theory of Computation, Digital Logic, Engineering Math). DO NOT invent a programming/coding problem unless explicit code is shown.
-        STEP 3: Provide a highly accurate, step-by-step mathematical or logical solution.
-        STEP 4: State the final exact numerical or specific answer clearly in bold.
-        """
-        
-        # 5. Get Magical Answer
-        response = model.generate_content([prompt, img])
-        return response.text
-        
-    except Exception as e:
-        print(f"❌ Gemini API failed: {e}")
-        return f"Error: {str(e)}. Please check your API key and internet connection."
-
-def get_interview_response(topic, chat_history):
-    prompt = f"You are a strict technical interviewer for {topic}. Ask ONE question. Wait for answer.\n\n"
-    for msg in chat_history:
-        role = "Candidate" if msg["role"] == "user" else "Interviewer"
-        prompt += f"{role}: {msg['content']}\n"
-    prompt += "Interviewer: "
-    
-    try:
-        response = llm.invoke(prompt)
-        reply = response.strip() if isinstance(response, str) else response.content.strip()
-        return reply.replace("Interviewer:", "").strip()
-    except Exception as e:
-        print(f"Interview engine failed: {e}")
-        return "System error."
-
-def extract_text_from_pdf(pdf_file):
-    import PyPDF2
-    try:
-        pdf_reader = PyPDF2.PdfReader(pdf_file)
-        return "".join([page.extract_text() + "\n" for page in pdf_reader.pages])
-    except:
-        return None
-
-def analyze_resume(resume_text, target_role="Software Engineering Intern"):
-    prompt = f"""
-    Act as an Expert ATS. Analyze this resume for {target_role}.
-    Provide Markdown output with: 1. ATS Score 2. Strengths 3. Weaknesses 4. Actionable Steps.
-    RESUME: {resume_text}
-    """
-    try:
-        response = llm.invoke(prompt)
-        return response.strip() if isinstance(response, str) else response.content.strip()
-    except Exception as e:
-        print(f"Resume analysis failed: {e}")
-        return None
-
-def generate_placement_prediction(elo_rating, weak_topics_dict):
-    base_score = max(0, min(100, int(((elo_rating - 1000) / 1000) * 100)))
-    weaknesses = ", ".join([f"{t}" for t, c in weak_topics_dict.items()])
-    if not weaknesses: weaknesses = "None"
-        
-    prompt = f"""
-    Act as a Hiring Manager. ELO: {elo_rating}. Weaknesses: {weaknesses}. Score: {base_score}%.
-    Generate an improvement roadmap in pure Markdown.
-    """
-    try:
-        response = llm.invoke(prompt)
-        reply = response.strip() if isinstance(response, str) else response.content.strip()
-        return base_score, reply
-    except Exception as e:
-        print(f"Prediction failed: {e}")
-        return base_score, "System error."
-import json
-
-def process_interview_answer(role, current_question, user_answer, current_difficulty):
-    """Evaluates the user's answer and generates an adaptive next question."""
-    
-    prompt = f"""
-    Act as a strict Senior FAANG Interviewer hiring for a {role} role.
-    
-    Current Difficulty Level: {current_difficulty}
-    Question Asked: {current_question}
-    Candidate's Answer: {user_answer}
-    
-    EVALUATION & ADAPTATION RULES:
-    1. Score the answer strictly out of 10.
-    2. Identify what was good and what was explicitly missing (Edge cases, optimizations, etc.).
-    3. ADAPTIVE QUESTIONING: 
-       - If Technical Score >= 7: Increase difficulty or ask a deep follow-up.
-       - If Technical Score < 7: Keep the same difficulty or simplify the concept.
-    
-    RETURN FORMAT (STRICT JSON ONLY):
-    {{
-        "technical_score": <int 1-10>,
-        "communication_score": <int 1-10>,
-        "positive_feedback": "<1 short sentence on what they did right>",
-        "improvement_feedback": "<1 short sentence on what they missed>",
-        "next_question": "<Write the next adaptive interview question here>",
-        "new_difficulty": "<Easy/Medium/Hard>"
-    }}
-    """
-    
-    try:
-        # Assuming you are using the Gemini setup we configured earlier
-        response = model.generate_content(prompt)
-        reply = response.text.strip()
-        
-        # Using your existing extract_json utility
-        parsed_data = extract_json(reply)
-        return parsed_data
-    except Exception as e:
-        print(f"Interview evaluation failed: {e}")
-        return None        
