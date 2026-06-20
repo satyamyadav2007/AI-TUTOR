@@ -279,3 +279,98 @@ def solve_doubt_from_image(image_file):
         Act as an Elite GATE CSE Mentor. Analyze this image very carefully.
         
         STEP 1: Transcribe the exact question text and mathematical formulas written in the image.
+        STEP 2: Identify the core subject. DO NOT invent a programming/coding problem unless explicit code is shown.
+        STEP 3: Provide a highly accurate, step-by-step mathematical or logical solution.
+        STEP 4: State the final exact numerical or specific answer clearly in bold.
+        """
+        
+        # Using the global gemini_model
+        response = gemini_model.generate_content([prompt, img])
+        return response.text
+        
+    except Exception as e:
+        print(f"❌ Gemini API failed: {e}")
+        return f"Error: {str(e)}. Please check your API key and internet connection."
+
+def get_interview_response(topic, chat_history):
+    prompt = f"You are a strict technical interviewer for {topic}. Ask ONE question. Wait for answer.\n\n"
+    for msg in chat_history:
+        role = "Candidate" if msg["role"] == "user" else "Interviewer"
+        prompt += f"{role}: {msg['content']}\n"
+    prompt += "Interviewer: "
+    
+    try:
+        response = gemini_model.generate_content(prompt)
+        return response.text.replace("Interviewer:", "").strip()
+    except Exception as e:
+        print(f"Interview engine failed: {e}")
+        return "System error."
+
+def extract_text_from_pdf(pdf_file):
+    import PyPDF2
+    try:
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        return "".join([page.extract_text() + "\n" for page in pdf_reader.pages])
+    except:
+        return None
+
+def analyze_resume(resume_text, target_role="Software Engineering Intern"):
+    prompt = f"""
+    Act as an Expert ATS. Analyze this resume for {target_role}.
+    Provide Markdown output with: 1. ATS Score 2. Strengths 3. Weaknesses 4. Actionable Steps.
+    RESUME: {resume_text}
+    """
+    try:
+        response = gemini_model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        print(f"Resume analysis failed: {e}")
+        return None
+
+def generate_placement_prediction(elo_rating, weak_topics_dict):
+    base_score = max(0, min(100, int(((elo_rating - 1000) / 1000) * 100)))
+    weaknesses = ", ".join([f"{t}" for t, c in weak_topics_dict.items()])
+    if not weaknesses: weaknesses = "None"
+        
+    prompt = f"""
+    Act as a Hiring Manager. ELO: {elo_rating}. Weaknesses: {weaknesses}. Score: {base_score}%.
+    Generate an improvement roadmap in pure Markdown.
+    """
+    try:
+        response = gemini_model.generate_content(prompt)
+        return base_score, response.text.strip()
+    except Exception as e:
+        print(f"Prediction failed: {e}")
+        return base_score, "System error."
+
+def process_interview_answer(role, current_question, user_answer, current_difficulty):
+    prompt = f"""
+    Act as a strict Senior FAANG Interviewer hiring for a {role} role.
+    
+    Current Difficulty Level: {current_difficulty}
+    Question Asked: {current_question}
+    Candidate's Answer: {user_answer}
+    
+    EVALUATION & ADAPTATION RULES:
+    1. Score the answer strictly out of 10.
+    2. Identify what was good and what was explicitly missing (Edge cases, optimizations, etc.).
+    3. ADAPTIVE QUESTIONING: 
+       - If Technical Score >= 7: Increase difficulty or ask a deep follow-up.
+       - If Technical Score < 7: Keep the same difficulty or simplify the concept.
+    
+    RETURN FORMAT (STRICT JSON ONLY):
+    {{
+        "technical_score": <int 1-10>,
+        "communication_score": <int 1-10>,
+        "positive_feedback": "<1 short sentence on what they did right>",
+        "improvement_feedback": "<1 short sentence on what they missed>",
+        "next_question": "<Write the next adaptive interview question here>",
+        "new_difficulty": "<Easy/Medium/Hard>"
+    }}
+    """
+    try:
+        response = gemini_model.generate_content(prompt)
+        return extract_json(response.text.strip())
+    except Exception as e:
+        print(f"Interview evaluation failed: {e}")
+        return None
