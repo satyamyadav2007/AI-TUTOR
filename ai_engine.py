@@ -16,8 +16,8 @@ from models import QuestionModel
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=GEMINI_API_KEY)
 
-# Initialize Gemini 2.0 Flash for all functions
-gemini_model = genai.GenerativeModel('models/gemini-2.0-flash')
+# Initialize Gemini 1.5 Flash for all functions
+gemini_model = genai.GenerativeModel('models/gemini-1.5-flash')
 
 # ==========================================
 # 🧠 VECTOR DATABASE LOADER
