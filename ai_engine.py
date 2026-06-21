@@ -120,10 +120,17 @@ def generate_concept_only(subject, topic):
     Act as a Master EdTech Content Creator. Teach '{topic}' from '{subject}'.
     CONTEXT: {theory_context}
     
+    CRITICAL RULES FOR MERMAID DIAGRAM:
+    1. Must strictly start with 'graph TD' or 'graph LR'.
+    2. Keep node variables simple alphabets (e.g., A, B, C).
+    3. Keep the text inside nodes extremely short (maximum 2-3 words).
+    4. FATAL ERROR WARNING: ABSOLUTELY NO special characters like (, ), [, ], {{, }}, ", or ' inside the node text. 
+    Example of GOOD code: graph TD\\nA[Page Fault] --> B[Load Memory]
+    
     STRICT JSON FORMAT:
     {{
         "concept_capsule": "TL;DR\\n\\nCore Logic\\n\\nGATE Trick",
-        "mermaid_diagram_code": "graph TD\\nA-->B"
+        "mermaid_diagram_code": "graph TD\\nA[Start] --> B[End]"
     }}
     """
     try:
@@ -131,12 +138,17 @@ def generate_concept_only(subject, topic):
         parsed = extract_json(response.text.strip())
         if parsed and "concept_capsule" in parsed:
             parsed["concept_capsule"] = parsed["concept_capsule"].replace("\\n", "\n")
+            
+            # Ek extra safety layer: Agar AI galti se quotes laga de toh use hata do
+            if "mermaid_diagram_code" in parsed and parsed["mermaid_diagram_code"]:
+                parsed["mermaid_diagram_code"] = parsed["mermaid_diagram_code"].replace('"', '').replace("'", "")
+                
             return parsed
         return None
     except Exception as e:
         print(f"Concept extraction failed: {e}")
         return None
-
+        
 def evaluate_dsa_code(problem_title, problem_desc, user_code, language="Python"):
     prompt = f"""
     Act as the LeetCode Online Judge and an Expert FAANG Interviewer.
