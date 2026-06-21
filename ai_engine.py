@@ -199,21 +199,17 @@ def generate_dsa_problem(topic, difficulty):
         return None
 
 def generate_pyq_variant(subject, topic, difficulty):
-    print(f"DEBUG: Starting generate_pyq_variant for {subject} - {topic}")
     try:
-        # Check if DB is loaded
         docs = pyq_db.similarity_search(f"Subject: {subject} Topic: {topic}", k=3)
         if not docs:
-            print("DEBUG: No docs found in pyq_db for this topic.")
+            st.error(f"🔍 AI ERROR: Database mein '{topic}' se juda koi data nahi mila!")
             return None
             
         selected_doc = random.choice(docs)
         original_q_json = selected_doc.metadata.get("full_json")
         if not original_q_json:
-            print("DEBUG: 'full_json' missing in selected document metadata.")
+            st.error("🔍 AI ERROR: Database doc mein 'full_json' missing hai.")
             return None
-            
-        print("DEBUG: Successfully retrieved document from ChromaDB.")
 
         prompt = f"""
         Act as an Expert IIT GATE Computer Science Exam Setter. I am giving you a REAL past year question.
@@ -240,18 +236,18 @@ def generate_pyq_variant(subject, topic, difficulty):
         """
         
         response = gemini_model.generate_content(prompt)
-        print(f"DEBUG: Gemini Response Received.")
-        
         parsed = extract_json(response.text.strip())
+        
         if parsed:
             parsed["is_variant"] = True
             return parsed
         else:
-            print(f"DEBUG: extract_json failed to parse Gemini response: {response.text}")
+            st.error(f"🔍 AI ERROR: JSON Parse Fail ho gaya. Gemini ne yeh bheja: {response.text}")
             return None
             
     except Exception as e:
-        print(f"Variant generation failed WITH ERROR: {e}")
+        # Yeh line asli error ko seedha screen par print karegi!
+        st.error(f"🔍 API/CODE ERROR: {str(e)}")
         return None
 
 def generate_study_plan(elo_rating, weak_topics_dict, days=21):
