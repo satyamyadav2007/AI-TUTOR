@@ -2,14 +2,23 @@ import streamlit as st
 import streamlit.components.v1 as components
 import time
 import re
-from ai_engine import generate_single_question, generate_concept_only
-from models import QuestionModel
-from streamlit_ace import st_ace
 import sys
 from io import StringIO
+from streamlit_ace import st_ace
+
+from models import QuestionModel
 from math_engine import update_elo, get_next_difficulty
-from ai_engine import generate_single_question, generate_concept_only, evaluate_dsa_code, generate_dsa_problem, generate_pyq_variant
 from database import init_db, create_user, login_user, update_user_progress
+
+# Import functions from ai_engine
+from ai_engine import (
+    generate_single_question, 
+    generate_concept_only, 
+    evaluate_dsa_code, 
+    generate_dsa_problem, 
+    generate_pyq_variant,
+    gemini_model # Import Gemini directly for Tab 10
+)
 
 # ----------------- DIAGRAM RENDERER -----------------
 def render_diagram(mermaid_code, theme_mode='light'): 
@@ -33,31 +42,29 @@ def render_diagram(mermaid_code, theme_mode='light'):
         <script>
             mermaid.initialize({{
                 startOnLoad: true,
-                theme: 'default', /* Ye ab hamesha light mode diagram dega */
+                theme: 'default',
                 securityLevel: 'loose'
             }});
         </script>
         """,
-        height=650,          # <-- FIX 1: Isko 350 se badha kar 650 kar dijiye
-        scrolling=True       # <-- FIX 2: Ye add kar dijiye taaki agar diagram aur bhi lamba ho toh scrollbar aa jaye
+        height=650,          
+        scrolling=True       
     )
 
 st.set_page_config(page_title="Heizen Exam Portal", layout="wide", initial_sidebar_state="expanded")
 
 # ----------------- SESSION STATES -----------------
-# App start hone par database ready karein
 init_db()
 
-# --- SESSION STATES ---
 default_states = {
     "questions": [], "user_answers": {}, "current_q": 0,
     "exam_active": False, "exam_submitted": False,
     "start_time": None, "seen_hashes": set(), "weak_topics": {},
     "subject": "", "topic": "", "current_concept": None,
     "current_elo": 1200,
-    "logged_in": False,   # <--- NAYA: Login status track karne ke liye
+    "logged_in": False,   
     "username": "" ,  
-    "dsa_solved": {"Easy": 0, "Medium": 0, "Hard": 0}     # <--- NAYA: Current user ka naam
+    "dsa_solved": {"Easy": 0, "Medium": 0, "Hard": 0}     
 }
 
 for key, value in default_states.items():
@@ -100,18 +107,17 @@ if not st.session_state.logged_in:
                 else:
                     st.error("Incorrect Username or Password.")
                     
-    # Agar logged in nahi hai, toh aage ka app load mat hone do
     st.stop()
+
 def update_weak_topics():
     for i, q in enumerate(st.session_state.questions):
         topic = q.get("topic", "Unknown")
         user_ans = st.session_state.user_answers.get(i)
         
-        # --- FIX: Key ko "ANS" se "answer" kiya ---
         correct_ans = q.get("answer", "") 
         
         is_correct = False
-        if q.get("type", "MCQ") == "MCQ" or "options" in q: # Default checking
+        if q.get("type", "MCQ") == "MCQ" or "options" in q:
             is_correct = user_ans == correct_ans
         elif q.get("type") == "MSQ" and isinstance(user_ans, list):
             is_correct = set(user_ans) == set(correct_ans)
@@ -159,15 +165,13 @@ GATE_SUBJECTS = [
 
 if st.session_state.exam_active:
     # ==========================================
-    # 📝 1. EXAM RUNNING UI (Ye sabse pehle check hoga)
+    # 📝 1. EXAM RUNNING UI
     # ==========================================
-    # Safely convert to integer. If it's an empty string or fails, default to 0.
     try:
-            q_index = int(st.session_state.current_q)
-       
+        q_index = int(st.session_state.current_q)
     except ValueError: 
-            q_index = 0
-            st.session_state.current_q = 0
+        q_index = 0
+        st.session_state.current_q = 0
             
     q_data = st.session_state.questions[q_index]        
     
@@ -257,14 +261,13 @@ elif st.session_state.exam_submitted:
 
 else:
     # ==========================================
-    # 🏠 3. MAIN DASHBOARD (TABS) - Only shows when NO exam is running
+    # 🏠 3. MAIN DASHBOARD (TABS)
     # ==========================================
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
         "📝 Mock Test", "🔥 Weak Topics", "💻 DSA Arena", 
         "📅 Study Planner", "📸 AI Doubt Solver", "🎤 AI Interviewer", 
         "📄 Resume Analyzer", "🎯 Placement Predictor", "🏆 Leaderboard", "🧠 AI Mentor Dashboard"
     ])
-    
     
     with tab10:
         st.title("🧠 Core AI Mentor & Knowledge Graph")
@@ -278,15 +281,12 @@ else:
             st.markdown("Visualizing your mastery across GATE CSE concepts.")
             import pandas as pd
             
-            # Simulated dynamic data based on current ELO and Weak Topics
-            # In a full production build, this would map directly from your SQLite database
             mastery_data = {
                 "Topic": ["Operating Systems", "DBMS", "Computer Networks", "Data Structures", "Algorithms", "TOC"],
                 "Mastery Level (%)": [85, 70, 45, 92, 60, 50]
             }
             
             df_graph = pd.DataFrame(mastery_data)
-            # Displaying a clean bar chart for the Knowledge Graph
             st.bar_chart(df_graph.set_index("Topic"), color="#f0b90b")
             st.caption("Lower bars indicate weak nodes in your Knowledge Graph that need immediate remediation.")
             
@@ -300,10 +300,8 @@ else:
             if st.button("💡 Get Strategic Guidance"):
                 if mentor_query:
                     with st.spinner("Analyzing your Knowledge Graph..."):
-                        # Connecting to your AI Engine
                         try:
-                            from ai_engine import llm
-                            
+                            # 🔴 FIX: Using Gemini directly instead of the deleted Ollama llm
                             prompt = f"""
                             Act as the Ultimate GATE CSE AI Mentor.
                             The student has an ELO of {st.session_state.current_elo}.
@@ -314,8 +312,8 @@ else:
                             Provide a highly strategic, encouraging, and data-driven response to diagnose their mistakes and improve their rank. Keep it concise.
                             """
                             
-                            response = llm.invoke(prompt)
-                            reply = response.strip() if isinstance(response, str) else response.content
+                            response = gemini_model.generate_content(prompt)
+                            reply = response.text.strip()
                             
                             st.success("Diagnosis Complete:")
                             st.markdown(reply)
@@ -324,6 +322,7 @@ else:
                             st.error(f"Mentor engine offline: {e}")
                 else:
                     st.warning("Please enter a query first.")
+                    
     with tab9:
         st.title("🏆 Hall of Fame & Rewards")
         st.markdown("Compete with other GATE aspirants and unlock verified Heizen certificates.")
@@ -335,7 +334,6 @@ else:
             st.subheader("🌍 Global Leaderboard")
             import pandas as pd
             
-            # Dummy data combined with the active user's actual data
             leaderboard_data = [
                 {"Username": "GATE_Cracker", "ELO Rating": 1950, "Tier": "Grandmaster 👑"},
                 {"Username": "OS_Wizard", "ELO Rating": 1820, "Tier": "Master 💎"},
@@ -345,10 +343,9 @@ else:
                 {"Username": "Newbie_Coder", "ELO Rating": 1100, "Tier": "Bronze 🥉"}
             ]
             
-            # Sort the leaderboard mathematically based on ELO
             df = pd.DataFrame(leaderboard_data)
             df = df.sort_values(by="ELO Rating", ascending=False).reset_index(drop=True)
-            df.index = df.index + 1 # Start ranks from 1 instead of 0
+            df.index = df.index + 1 
             
             st.dataframe(df, use_container_width=True)
             
@@ -356,11 +353,9 @@ else:
         with col_cert:
             st.subheader("🎓 Your Certificates")
             
-            # Unlock certificate only if they pass a certain threshold
             if st.session_state.current_elo >= 1200:
                 st.success("Achievement Unlocked: Foundation Scholar!")
                 
-                # Custom Light Mode HTML/CSS Certificate
                 cert_html = f"""
                 <div style="background-color: #ffffff; border: 8px solid #f0b90b; padding: 25px; text-align: center; border-radius: 8px; color: #333333; box-shadow: 0px 5px 15px rgba(0,0,0,0.08);">
                     <h2 style="color: #f0b90b; margin-bottom: 5px; font-family: 'Times New Roman', serif; font-size: 24px;">CERTIFICATE OF EXCELLENCE</h2>
@@ -383,7 +378,6 @@ else:
     with tab3:
         st.title("💻 LeetCode Style DSA Arena")
         
-        # 1. LEETCODE STYLE DASHBOARD
         if "dsa_solved" not in st.session_state:
             st.session_state.dsa_solved = {"Easy": 0, "Medium": 0, "Hard": 0}
             
@@ -397,7 +391,6 @@ else:
         col_dash4.metric("🔴 Hard", st.session_state.dsa_solved["Hard"])
         st.markdown("---")
         
-        # 2. PROBLEM GENERATOR
         col_topic, col_diff, col_btn = st.columns([2, 2, 1])
         with col_topic:
             dsa_topic = st.selectbox("Select Topic", ["Arrays & Hashing", "Two Pointers", "Sliding Window", "Dynamic Programming", "Graphs", "Trees"])
@@ -408,15 +401,13 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("⚡ Generate Problem"):
                 with st.spinner("Crafting a problem..."):
-                    from ai_engine import generate_dsa_problem
                     problem_data = generate_dsa_problem(dsa_topic, dsa_diff)
                     if problem_data:
                         st.session_state.current_dsa_problem = problem_data
-                        st.session_state.current_dsa_diff = dsa_diff # Save difficulty to update dashboard later
+                        st.session_state.current_dsa_diff = dsa_diff 
                     else:
                         st.error("Failed to generate problem. Try again.")
 
-        # 3. SPLIT PANE: PROBLEM vs EDITOR
         if "current_dsa_problem" in st.session_state and st.session_state.current_dsa_problem:
             active_prob = st.session_state.current_dsa_problem
             
@@ -433,7 +424,6 @@ else:
                     st.code(f"Input: {tc.get('input')}\nOutput: {tc.get('output')}", language="text")
                     
             with col_editor:
-                # Language Selection
                 lang_map = {"Python": "python", "C++": "c_cpp", "Java": "java", "C": "c_cpp"}
                 selected_lang = st.selectbox("Programming Language", ["Python", "C++", "Java", "C"], index=0)
                 
@@ -454,27 +444,19 @@ else:
                     key="dsa_editor"
                 )
                 
-                # Notice for local compilation
                 if selected_lang != "Python":
                     st.caption("⚠️ Local 'Run Code' execution only supports Python. Use '🤖 Submit to AI Judge' for C++/Java/C.")
                 
                 col_run, col_analyze = st.columns(2)
                 
-                # LOCAL RUN (Python Only for MVP)
-                # ==========================================
-                # 🔥 THE 100% FREE PISTON EXECUTION ENGINE
-                # ==========================================
                 with col_run:
                     if st.button(f"▶️ Compile & Run ({selected_lang})", width="stretch"):
                         st.markdown("### 🖥️ Console Output:")
                         
                         with st.spinner(f"Compiling {selected_lang} code completely for FREE..."):
                             import requests
-                            
-                            # Piston API - 100% Free, No API Key Required!
                             url = "https://emkc.org/api/v2/piston/execute"
                             
-                            # Language versions mapping for Piston
                             piston_langs = {
                                 "Python": {"language": "python", "version": "3.10.0"},
                                 "C++": {"language": "c++", "version": "10.2.0"},
@@ -486,19 +468,17 @@ else:
                                 "language": piston_langs[selected_lang]["language"],
                                 "version": piston_langs[selected_lang]["version"],
                                 "files": [{"content": user_code}],
-                                "stdin": "" # Custom inputs ke liye
+                                "stdin": "" 
                             }
                             
                             try:
                                 response = requests.post(url, json=payload)
                                 result = response.json()
                                 
-                                # Check for compilation errors first (C/C++/Java)
                                 if "compile" in result and result["compile"]["code"] != 0:
                                     st.error("❌ Compilation Error:")
                                     st.code(result["compile"]["output"], language="text")
-                                
-                                # Check runtime execution
+                                    
                                 elif "run" in result:
                                     run_data = result["run"]
                                     if run_data["code"] == 0:
@@ -514,11 +494,9 @@ else:
                             except Exception as e:
                                 st.error(f"Execution Engine Connection Failed: {e}")
 
-                # AI SUBMISSION (Supports All Languages)
                 with col_analyze:
                     if st.button("🤖 Submit to AI Judge"):
                         with st.spinner(f"Heizen is evaluating your {selected_lang} code... 🕵️‍♂️"):
-                            from ai_engine import evaluate_dsa_code
                             analysis = evaluate_dsa_code(
                                 active_prob.get("title", ""), 
                                 active_prob.get("description", ""), 
@@ -532,7 +510,6 @@ else:
                                 status_color = "🟢" if "Accepted" in status_str else "🔴"
                                 st.subheader(f"{status_color} Status: {status_str} (Score: {analysis.get('score', 'N/A')})")
                                 
-                                # Update Dashboard if Accepted
                                 if "Accepted" in status_str:
                                     st.session_state.dsa_solved[st.session_state.current_dsa_diff] += 1
                                     st.balloons()
@@ -549,9 +526,6 @@ else:
                             else:
                                 st.error("AI Evaluation failed. Please try again.")
 
-    # --- TAB 4: STUDY PLANNER ---
-    # --- TAB 5: AI DOUBT SOLVER ---
-    # --- TAB 6: AI INTERVIEWER ---
     # --- TAB 8: PLACEMENT PREDICTOR ---
     with tab8:
         st.title("🎯 Placement Predictor")
@@ -568,7 +542,6 @@ else:
                     st.session_state.weak_topics
                 )
                 
-                # Display the visual score using columns and progress bar
                 st.markdown("---")
                 col_score1, col_score2 = st.columns([1, 3])
                 
@@ -585,21 +558,20 @@ else:
                     else:
                         st.success("Highly competitive! Ready for interviews.")
                         
-                # Display the AI Roadmap
                 st.markdown("### 🗺️ Your Personalized Placement Roadmap")
                 st.markdown(roadmap)
+                
+    # --- TAB 6: AI INTERVIEWER ---
     with tab6:
         st.title("👔 Adaptive AI Mock Interviewer")
         st.markdown("FAANG-level evaluation with real-time feedback and dynamic difficulty.")
         
-        # Initialize Session States for Interview
         if "interview_started" not in st.session_state:
             st.session_state.interview_started = False
             st.session_state.interview_history = []
             st.session_state.current_q = ""
             st.session_state.current_diff = "Medium"
             
-        # Interview Setup Setup
         col1, col2, col3 = st.columns([2, 2, 1])
         with col1:
             target_role = st.selectbox("Target Role", ["SDE-1", "Frontend Developer", "Data Scientist", "Backend Engineer"])
@@ -610,40 +582,33 @@ else:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("🚀 Start Interview", width="stretch") and not st.session_state.interview_started:
                 st.session_state.interview_started = True
-                # Starting question
                 st.session_state.current_q = f"Welcome! To start, can you explain a complex concept in {start_topic} that you are comfortable with?"
                 st.session_state.interview_history = []
                 st.rerun()
 
         st.markdown("---")
         
-        # Active Interview Loop
         if st.session_state.interview_started:
-            
-            # 1. Display Interview History & Scorecards
             for turn in st.session_state.interview_history:
                 with st.chat_message("user", avatar="👤"):
                     st.write(f"**You:** {turn['answer']}")
                     
                 with st.chat_message("assistant", avatar="🤖"):
-                    # The Scorecard
                     st.markdown("### 📊 Evaluation Scorecard")
                     score_col1, score_col2 = st.columns(2)
-                    score_col1.metric("⚙️ Technical Accuracy", f"{turn['scores']['technical_score']}/10")
-                    score_col2.metric("🗣️ Communication", f"{turn['scores']['communication_score']}/10")
+                    score_col1.metric("⚙️ Technical Accuracy", f"{turn['scores'].get('technical_score', 'N/A')}/10")
+                    score_col2.metric("🗣️ Communication", f"{turn['scores'].get('communication_score', 'N/A')}/10")
                     
-                    st.success(f"**✓ Strong Point:** {turn['scores']['positive_feedback']}")
-                    st.error(f"**✗ Area to Improve:** {turn['scores']['improvement_feedback']}")
+                    st.success(f"**✓ Strong Point:** {turn['scores'].get('positive_feedback', '')}")
+                    st.error(f"**✗ Area to Improve:** {turn['scores'].get('improvement_feedback', '')}")
                     st.markdown("---")
                     st.write(f"**Interviewer:** {turn['next_q']}")
 
-            # 2. Display Current Question
             if not st.session_state.interview_history:
                 with st.chat_message("assistant", avatar="🤖"):
                     st.write(f"**Interviewer:** {st.session_state.current_q}")
                     st.caption(f"Current Difficulty: {st.session_state.current_diff}")
 
-            # 3. User Input
             user_answer = st.text_area("Your Answer:", height=150, placeholder="Type your answer here or explain your logic...")
             
             if st.button("Submit Answer & Continue ➡️"):
@@ -659,7 +624,6 @@ else:
                         )
                         
                         if evaluation:
-                            # Save turn to history
                             st.session_state.interview_history.append({
                                 "question": st.session_state.current_q,
                                 "answer": user_answer,
@@ -667,7 +631,6 @@ else:
                                 "next_q": evaluation.get("next_question", "Let's move on.")
                             })
                             
-                            # Update current state for next loop
                             st.session_state.current_q = evaluation.get("next_question", "Could you elaborate more?")
                             st.session_state.current_diff = evaluation.get("new_difficulty", st.session_state.current_diff)
                             
@@ -676,27 +639,22 @@ else:
                             st.error("Evaluation failed. Please try submitting again.")
                 else:
                     st.warning("Please type an answer before submitting.")
-    # --- TAB 5: AI MOCK INTERVIEWER ---
+
     # --- TAB 5: AI DOUBT SOLVER ---
     with tab5:
         st.title("📸 AI Doubt Solver")
         st.markdown("Stuck on a tricky graph, logic circuit, or equation? Upload a photo and let Heizen solve it!")
         
-        # File uploader for the image
         uploaded_file = st.file_uploader("Upload your doubt (JPG, PNG)", type=["jpg", "jpeg", "png"])
         
         if uploaded_file is not None:
-            # Display the uploaded image cleanly
             st.image(uploaded_file, caption="Your Doubt")
-            
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Solve Button
             if st.button("🧠 Solve this Doubt"):
                 with st.spinner("Heizen is analyzing the image and generating a step-by-step solution..."):
                     from ai_engine import solve_doubt_from_image
                     
-                    # Call the Gemini Vision API function
                     solution = solve_doubt_from_image(uploaded_file)
                     
                     if solution.startswith("Error"):
@@ -705,6 +663,7 @@ else:
                         st.success("Doubt Solved!")
                         st.markdown("### Solution:")
                         st.markdown(solution)
+                        
     # --- TAB 7: RESUME ANALYZER ---
     with tab7:
         st.title("📄 AI Resume Analyzer")
@@ -712,7 +671,6 @@ else:
         
         col1, col2 = st.columns([2, 1])
         with col1:
-            # Default set to Intern, but user can change it to SDE, Data Scientist, etc.
             target_role = st.text_input("Target Job Role", value="Software Engineering Intern")
             
         uploaded_resume = st.file_uploader("Upload Resume (PDF format only)", type=["pdf"])
@@ -720,14 +678,11 @@ else:
         if uploaded_resume is not None:
             if st.button("🔍 Scan & Analyze Resume"):
                 with st.spinner("Heizen ATS is scanning your resume for keywords and impact..."):
-                    # Import the new functions
                     from ai_engine import extract_text_from_pdf, analyze_resume
                     
-                    # 1. Extract Text
                     resume_text = extract_text_from_pdf(uploaded_resume)
                     
                     if resume_text and len(resume_text.strip()) > 50:
-                        # 2. Analyze Text
                         analysis_result = analyze_resume(resume_text, target_role)
                         
                         if analysis_result:
@@ -738,15 +693,14 @@ else:
                             st.error("AI failed to analyze the resume. Please try again.")
                     else:
                         st.error("Could not extract text. Please ensure it is a text-based PDF (not an image).")                    
+                        
     # --- TAB 4: AI PERSONALIZED STUDY PLANNER ---
     with tab4:
         st.title("📅 AI Personalized Study Planner")
         st.markdown("Your gamified, daily-actionable roadmap to crack GATE.")
         
-        # --- TOP DASHBOARD: STREAK & PROGRESS ---
         st.markdown("### 📊 Your Progress Dashboard")
         
-        # Initialize dummy streak for MVP
         if "streak" not in st.session_state: st.session_state.streak = 3
         
         col_dash1, col_dash2, col_dash3 = st.columns([1, 1, 2])
@@ -755,7 +709,6 @@ else:
         with col_dash2:
             st.metric("🎯 Current ELO", st.session_state.current_elo)
         with col_dash3:
-            # Dynamic Topic Progress Bars based on weaknesses
             st.markdown("**Topic Mastery**")
             st.progress(0.8, text="Data Structures (80%)")
             st.progress(0.3, text="Computer Networks (30% - Needs Work)")
@@ -763,7 +716,6 @@ else:
             
         st.markdown("---")
         
-        # --- PLAN GENERATOR ---
         col_slider, col_btn = st.columns([2, 1])
         with col_slider:
             plan_days = st.slider("Select Plan Duration (Days)", 7, 30, 15)
@@ -782,18 +734,15 @@ else:
                     
                     if plan_data:
                         st.session_state.study_plan_json = plan_data
-                        # Initialize checklist states
                         st.session_state.checkbox_states = {}
                         st.success("Plan generated successfully!")
                     else:
                         st.error("Failed to generate plan.")
                         
-        # --- INTERACTIVE PLAN RENDERER ---
         if "study_plan_json" in st.session_state and isinstance(st.session_state.study_plan_json, list):
             st.markdown("---")
             st.subheader("📝 Your Daily Action Items")
             
-            # Create a clean UI loop for each day
             for day_plan in st.session_state.study_plan_json:
                 day_num = day_plan.get('day', '?')
                 focus = day_plan.get('focus_topic', 'General Revision')
@@ -803,16 +752,13 @@ else:
                     for task_idx, task in enumerate(tasks):
                         task_key = f"task_{day_num}_{task_idx}"
                         
-                        # Set default state if not exists
                         if task_key not in st.session_state.get("checkbox_states", {}):
                             if "checkbox_states" not in st.session_state: st.session_state.checkbox_states = {}
                             st.session_state.checkbox_states[task_key] = False
                             
-                        # Render Checkbox
                         checked = st.checkbox(task, key=task_key)
                         st.session_state.checkbox_states[task_key] = checked
                         
-                    # Show a tiny progress bar for that specific day
                     day_tasks_total = len(tasks)
                     day_tasks_done = sum(1 for i in range(day_tasks_total) if st.session_state.checkbox_states.get(f"task_{day_num}_{i}"))
                     
@@ -821,6 +767,7 @@ else:
                         st.progress(day_progress)
                         if day_progress == 1.0:
                             st.success("🎉 Day Complete! Streak Maintained.")       
+                            
     # --- TAB 1: NORMAL TEST ---
     with tab1:
         st.title("🎯 Create Mock Test")
@@ -842,19 +789,20 @@ else:
                 progress_bar = st.progress(0)
                 status_text = st.empty()
                 
-                for i in range(num_questions): # slider se aayi hui value
+                for i in range(num_questions): 
                     status_text.markdown(f"**Crafting Variant {i+1}/{num_questions}...**")
                     
-                    # ELO Difficulty Logic
                     from math_engine import get_next_difficulty
                     current_difficulty, _ = get_next_difficulty(st.session_state.current_elo)
                     
-                    # Naya Variant Generator Call Karein
                     q_data = generate_pyq_variant(
                         subject=st.session_state.subject, 
                         topic=st.session_state.topic, 
                         difficulty=current_difficulty
                     )
+                    
+                    # 🔴 FIX 3: 5 Seconds delay is safer for Gemini API limits
+                    time.sleep(5)
                     
                     if q_data:
                         st.session_state.questions.append(q_data)
@@ -867,7 +815,6 @@ else:
                     st.session_state.user_answers = {i: None for i in range(len(st.session_state.questions))}
                     st.session_state.exam_active = True
                     st.session_state.exam_submitted = False
-                    import time
                     st.session_state.start_time = time.time()
                     
                     status_text.empty()
@@ -875,11 +822,7 @@ else:
                     st.rerun()
                 else:
                      st.error("Engine failed to generate data.")
-                   
-            
-
-                
-                
+                     
     # --- TAB 2: WEAK TOPIC REMEDIATION ---
     with tab2:
         st.title("🩺 Targeted Remediation")
@@ -926,6 +869,10 @@ else:
                     generated_list = []
                     for idx in range(practice_count):
                         q, q_hash = generate_single_question(weak_subject, weak_topic, "GATE Standard", st.session_state.seen_hashes)
+                        
+                        # 🔴 FIX 2: Practice loop ke andar bhi 5 second ka sleep lagana padega!
+                        time.sleep(5)
+                        
                         if q:
                             q["concept_capsule"] = st.session_state.current_concept.get("concept_capsule", "")
                             q["mermaid_diagram_code"] = st.session_state.current_concept.get("mermaid_diagram_code", "")
@@ -942,4 +889,3 @@ else:
                         st.session_state.current_concept = None 
                         time.sleep(1)
                         st.rerun()
-
