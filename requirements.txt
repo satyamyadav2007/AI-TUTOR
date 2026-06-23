@@ -4,7 +4,7 @@ chromadb==1.5.9
 pypdf
 sentence-transformers
 streamlit
-google-generativeai
+google-generativeai>=0.7.0
 pillow
 langchain-huggingface
 streamlit-ace
