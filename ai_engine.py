@@ -8,6 +8,7 @@ from PIL import Image
 from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from models import QuestionModel
+from database import get_cached_questions, save_questions_to_bank
 
 # ==========================================
 # 🚀 GLOBAL GEMINI SETUP (The New Brain)
@@ -262,9 +263,18 @@ def generate_pyq_variant(subject, topic, difficulty):
         return None
 def generate_batch_pyq_variants(subject, topic, difficulty, num_questions):
     """
-    Ek hi API call mein n-questions generate karne wala BATCH function.
-    Cost aur time dono bachata hai.
+    Priority 3 & 4: Pehle Cache (Database) check karega. 
+    Agar miss hua, tabhi Gemini ko call karega aur future ke liye save kar lega!
     """
+    # 🔍 STEP 1: CHECK CACHE FIRST (0 API Cost)
+    cached_data = get_cached_questions(subject, topic, difficulty, num_questions)
+    if cached_data:
+        print("🟢 CACHE HIT! Zero API Cost. Fast Loading.")
+        return cached_data
+        
+    print("🔴 CACHE MISS! Calling Gemini API...")
+    
+    # 🤖 STEP 2: GEMINI API CALL (Pichla wala logic)
     prompt = f"""
     Act as an expert GATE CSE exam setter.
     Create EXACTLY {num_questions} unique questions for the subject '{subject}' and topic '{topic}'.
@@ -283,17 +293,14 @@ def generate_batch_pyq_variants(subject, topic, difficulty, num_questions):
             "type": "MCQ",
             "topic": "{topic}",
             "difficulty": "{difficulty}"
-        }},
-        ... (repeat for {num_questions} questions)
+        }}
     ]
     """
     
     try:
-        # Pura batch ek hi baar mein generate hoga!
         response = gemini_model.generate_content(prompt)
         text_resp = response.text.strip()
         
-        # Clean up markdown formatting if Gemini mistakenly adds it
         if text_resp.startswith("```json"):
             text_resp = text_resp[7:]
         if text_resp.startswith("```"):
@@ -305,6 +312,8 @@ def generate_batch_pyq_variants(subject, topic, difficulty, num_questions):
         batch_questions = json.loads(text_resp.strip())
         
         if isinstance(batch_questions, list) and len(batch_questions) > 0:
+            # 💾 STEP 3: SAVE TO CACHE FOR FUTURE USERS
+            save_questions_to_bank(subject, topic, difficulty, batch_questions)
             return batch_questions
         return []
         
