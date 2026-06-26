@@ -10,9 +10,7 @@ except ImportError:
 import streamlit as st
 import streamlit.components.v1 as components
 import time
-import streamlit as st
-import streamlit.components.v1 as components
-import time
+
 # ... (baaki aapke saare purane imports yahan se shuru honge) ...import streamlit as st
 import streamlit.components.v1 as components
 import time
@@ -764,6 +762,7 @@ else:
                         if day_progress == 1.0: st.success("🎉 Day Complete! Streak Maintained.")       
                             
     # --- TAB 1: NORMAL TEST ---
+    
     with tab1:
         st.title("🎯 Create Mock Test")
         col1, col2 = st.columns(2)
@@ -778,38 +777,31 @@ else:
                 st.session_state.subject = subject
                 st.session_state.topic = topic
                 
-                with st.spinner("Heizen is cloning real GATE PYQs..."):
-                    st.session_state.questions = []
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
+                with st.spinner(f"Heizen is batch-crafting {num_questions} GATE PYQs at lightning speed... ⚡"):
                     
-                    for i in range(num_questions): 
-                        status_text.markdown(f"**Crafting Variant {i+1}/{num_questions}...**")
-                        from math_engine import get_next_difficulty
-                        current_difficulty, _ = get_next_difficulty(st.session_state.current_elo)
-                        
-                        q_data = generate_pyq_variant(subject=st.session_state.subject, topic=st.session_state.topic, difficulty=current_difficulty)
-                        time.sleep(5)
-                        
-                        if q_data:
-                            st.session_state.questions.append(q_data)
-                        else:
-                            st.warning(f"Question {i+1} skip ho gaya (Database se variant nahi ban paya).")
-                            
-                        progress_bar.progress(int(((i + 1) / num_questions) * 100))
-                        
-                    if len(st.session_state.questions) > 0:
-                        log_usage() # 🛡️ Log usage after success
+                    # Naya Batch function import karein
+                    from ai_engine import generate_batch_pyq_variants
+                    
+                    # Sirf EK API Call! Koi loop nahi, koi time.sleep nahi!
+                    batch_data = generate_batch_pyq_variants(
+                        subject=st.session_state.subject, 
+                        topic=st.session_state.topic, 
+                        difficulty=difficulty,
+                        num_questions=num_questions
+                    )
+                    
+                    if batch_data and len(batch_data) > 0:
+                        log_usage() # 🛡️ Sirf ek baar limit meter badhega
+                        st.session_state.questions = batch_data
                         st.session_state.user_answers = {i: None for i in range(len(st.session_state.questions))}
                         st.session_state.exam_active = True
                         st.session_state.exam_submitted = False
                         st.session_state.start_time = time.time()
-                        status_text.empty()
+                        
                         st.success("Test Generated Successfully! Scroll down to start.")
                         st.rerun()
                     else:
-                        st.error("Engine failed to generate data.")
-                     
+                        st.error("Engine failed to generate data. Please try again.")
     # --- TAB 2: WEAK TOPIC REMEDIATION ---
     with tab2:
         st.title("🩺 Targeted Remediation")
