@@ -22,6 +22,11 @@ from streamlit_ace import st_ace
 from models import QuestionModel
 from math_engine import update_elo, get_next_difficulty
 from database import init_db, create_user, login_user, update_user_progress, increment_usage
+def validate_mcq(user_ans, correct_ans):
+    """UI par answer check karne ke liye simple Python logic (No AI needed)"""
+    if user_ans is None or correct_ans is None:
+        return False
+    return user_ans.strip().lower() == correct_ans.strip().lower()
 
 
 # Import functions from ai_engine
@@ -828,9 +833,23 @@ else:
             st.markdown("---")
             st.markdown(f"### 📖 Concept: {weak_topic}")
             st.markdown(st.session_state.current_concept.get("concept_capsule", "No explanation provided."))
+            diagram_code = get_static_diagram(weak_topic)
+            if diagram_code:
+                render_diagram(diagram_code, "Light Mode")
+            else:   
+                diagram_code = st.session_state.current_concept.get("mermaid_diagram_code")
+                render_diagram(diagram_code, "Light Mode")
+     
+
+    
+    
+
+    
+    
+
             
-            diagram_code = st.session_state.current_concept.get("mermaid_diagram_code")
-            if diagram_code: render_diagram(diagram_code, "Light Mode")
+            
+            
                 
             st.markdown("---")
             st.markdown("#### Ready to test your knowledge?")

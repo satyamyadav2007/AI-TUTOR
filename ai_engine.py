@@ -452,3 +452,19 @@ def process_interview_answer(role, current_question, user_answer, current_diffic
     except Exception as e:
         print(f"Interview evaluation failed: {e}")
         return None
+# --- Python-Based AI Replacement Functions ---
+
+def get_static_diagram(topic):
+    """AI call karne se pehle ise check karo, agar template mila toh API cost bachegi!"""
+    templates = {
+        "deadlock": "graph TD\n A[Resource] --> B[Process]",
+        "paging": "graph TD\n A[Logical] --> B[Physical]"
+    }
+    return templates.get(topic.lower(), None)
+
+def get_performance_stats(solved_count, total_q):
+    """AI ka load kam karne ke liye basic math logic."""
+    if total_q == 0: return "Newbie 🔰"
+    percentage = (solved_count / total_q) * 100
+    if percentage > 80: return "Master 💎"
+    return "Needs Practice 🎯"        
