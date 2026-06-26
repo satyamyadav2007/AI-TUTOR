@@ -30,13 +30,15 @@ def validate_mcq(user_ans, correct_ans):
 
 
 # Import functions from ai_engine
+# app.py mein ye block dhoondhein aur modify karein:
 from ai_engine import (
     generate_single_question, 
     generate_concept_only, 
     evaluate_dsa_code, 
     generate_dsa_problem, 
     generate_pyq_variant,
-    gemini_model # Import Gemini directly for Tab 10
+    gemini_model,
+    get_static_diagram  # <--- BAS YE LINE ADD KARNI HAI!
 )
 
 # ----------------- DIAGRAM RENDERER -----------------
@@ -839,18 +841,7 @@ else:
             else:   
                 diagram_code = st.session_state.current_concept.get("mermaid_diagram_code")
                 render_diagram(diagram_code, "Light Mode")
-     
 
-    
-    
-
-    
-    
-
-            
-            
-            
-                
             st.markdown("---")
             st.markdown("#### Ready to test your knowledge?")
             
