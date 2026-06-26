@@ -1,6 +1,7 @@
+
+import hashlib
 import sqlite3
 import json
-import hashlib
 
 def init_db():
     conn = sqlite3.connect('heizen.db')
@@ -28,21 +29,22 @@ def init_db():
         
     conn.commit()
     conn.close()
+    
+    # 🔥 Initialize caching table too!
+    init_question_bank()
 
 def create_user(username, password):
     try:
         conn = sqlite3.connect('heizen.db')
         c = conn.cursor()
-        # .strip() removes any accidental invisible spaces
         clean_user = username.strip()
         clean_pass = password.strip()
         
         c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (clean_user, clean_pass))
-        conn.commit() # 🔥 MOST CRITICAL LINE: Saves data permanently
+        conn.commit()
         conn.close()
         return True
     except sqlite3.IntegrityError:
-        # User already exists
         return False
     except Exception as e:
         print(f"Error creating user: {e}")
@@ -52,7 +54,6 @@ def login_user(username, password):
     try:
         conn = sqlite3.connect('heizen.db')
         c = conn.cursor()
-        
         clean_user = username.strip()
         clean_pass = password.strip()
         
@@ -61,7 +62,6 @@ def login_user(username, password):
         conn.close()
         
         if user:
-            # Safely parse JSON and handle missing data
             weak_data = {}
             if user[1]:
                 try:
@@ -100,3 +100,60 @@ def increment_usage(username):
         conn.close()
     except Exception as e:
         print(f"Usage Increment Error: {e}")
+
+# ==========================================
+# 🧠 GLOBAL QUESTION BANK (CACHING SYSTEM)
+# ==========================================
+
+def init_question_bank():
+    conn = sqlite3.connect('heizen.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS question_bank (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            subject TEXT,
+            topic TEXT,
+            difficulty TEXT,
+            question_data TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def save_questions_to_bank(subject, topic, difficulty, questions_list):
+    try:
+        conn = sqlite3.connect('heizen.db')
+        c = conn.cursor()
+        clean_sub = subject.strip().lower()
+        clean_top = topic.strip().lower()
+        
+        for q in questions_list:
+            c.execute("INSERT INTO question_bank (subject, topic, difficulty, question_data) VALUES (?, ?, ?, ?)", 
+                      (clean_sub, clean_top, difficulty, json.dumps(q)))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error saving to question bank: {e}")
+
+def get_cached_questions(subject, topic, difficulty, num_questions):
+    try:
+        conn = sqlite3.connect('heizen.db')
+        c = conn.cursor()
+        clean_sub = subject.strip().lower()
+        clean_top = topic.strip().lower()
+        
+        c.execute('''
+            SELECT question_data FROM question_bank 
+            WHERE subject=? AND topic=? AND difficulty=? 
+            ORDER BY RANDOM() LIMIT ?
+        ''', (clean_sub, clean_top, difficulty, num_questions))
+        
+        rows = c.fetchall()
+        conn.close()
+        
+        if rows and len(rows) == num_questions:
+            return [json.loads(row[0]) for row in rows]
+        return None 
+    except Exception as e:
+        print(f"Cache fetch error: {e}")
+        return None
