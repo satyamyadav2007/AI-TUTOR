@@ -180,14 +180,25 @@ def update_weak_topics():
             st.session_state.weak_topics[topic] = st.session_state.weak_topics.get(topic, 0) + 1
 
 # ----------------- SIDEBAR -----------------
-st.sidebar.title("🧠 Heizen Portal")
 if not st.session_state.get('is_pro', False):
-    st.sidebar.markdown(f"**Free Limits:** {st.session_state.get('generations_used', 0)} / 5 Used")
-    st.sidebar.progress(st.session_state.get('generations_used', 0) / 5.0)
-    st.sidebar.warning("Upgrade to PRO for Unlimited Generations!")
-else:
-    st.sidebar.success("👑 PRO Member (Unlimited Access)")
-st.sidebar.markdown("---")
+            gen_used = st.session_state.get('generations_used', 0)
+            st.sidebar.markdown(f"**Free Limits:** {gen_used} / 5")
+            
+            # 🔥 Fix: Agar limit cross ho jaye, toh value max 1.0 hi rahegi
+            progress_value = min(gen_used / 5.0, 1.0)
+            st.sidebar.progress(progress_value)
+            
+            if gen_used >= 5:
+                st.sidebar.error("⚠️ Free limit reached!")
+                st.sidebar.warning("Upgrade to PRO for Unlimited Generations!")
+                
+                # Testing ke liye temporary Upgrade Button
+                if st.sidebar.button("👑 Upgrade to PRO (Click to Test)"):
+                    st.session_state.is_pro = True
+                    # (Yahan baad mein aap payment gateway ka logic laga sakte hain)
+                    st.rerun()
+        else:
+            st.sidebar.success("👑 PRO Member (Unlimited Access)")
 
 # Permanent Light Mode CSS
 # --- DYNAMIC THEME CSS (Auto Light/Dark Mode) ---
