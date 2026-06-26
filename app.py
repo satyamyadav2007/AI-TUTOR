@@ -138,9 +138,28 @@ if not st.session_state.logged_in:
 # 🛡️ GLOBAL FREEMIUM LIMIT CHECKER
 # ==========================================
 def check_limit():
-    """Checks if the user has free limits left. Returns True if allowed, False if locked."""
-    is_pro = st.session_state.get('is_pro', False)
-    usage_count = st.session_state.get('generations_used', 0)
+    # ... (purana logic)
+    if not st.session_state.get('is_pro', False) and st.session_state.get('generations_used', 0) >= 5:
+        st.error("🔒 Free Limit Reached (5/5).")
+        st.markdown("### 👑 Upgrade to Heizen PRO")
+        st.write("Get Unlimited AI generations and Priority access.")
+        
+        # 1. Pay button
+        st.markdown(f"[👉 Click here to Pay ₹99 on Razorpay](https://razorpay.me/@yourupi)", unsafe_allow_html=True)
+        
+        # 2. Manual Verification Button (Yeh PRO unlock karega)
+        if st.button("✅ I have paid, Activate PRO now!"):
+            from database import set_pro_status
+            success = set_pro_status(st.session_state.username)
+            if success:
+                st.session_state.is_pro = True
+                st.success("🎉 Welcome to PRO! Refreshing...")
+                st.rerun()
+            else:
+                st.error("Error activating PRO. Contact support.")
+        
+        return False
+    return True
     
     if not is_pro and usage_count >= 5:
         st.error("🔒 Free Limit Reached (5/5).")

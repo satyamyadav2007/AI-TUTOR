@@ -157,3 +157,15 @@ def get_cached_questions(subject, topic, difficulty, num_questions):
     except Exception as e:
         print(f"Cache fetch error: {e}")
         return None
+def set_pro_status(username):
+    """Marks a user as PRO in the database."""
+    try:
+        conn = sqlite3.connect('heizen.db')
+        c = conn.cursor()
+        c.execute("UPDATE users SET is_pro=1 WHERE username=?", (username.strip(),))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Error setting PRO status: {e}")
+        return False        
