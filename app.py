@@ -197,8 +197,11 @@ if not st.session_state.get('is_pro', False):
                     st.session_state.is_pro = True
                     # (Yahan baad mein aap payment gateway ka logic laga sakte hain)
                     st.rerun()
-        else:
-            st.sidebar.success("👑 PRO Member (Unlimited Access)")
+                else:
+                    st.sidebar.success("👑 PRO Member (Unlimited Access)")    
+            
+            
+        
 
 # Permanent Light Mode CSS
 # --- DYNAMIC THEME CSS (Auto Light/Dark Mode) ---
