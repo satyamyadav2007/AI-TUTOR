@@ -524,7 +524,7 @@ else:
                                 st.error(f"Execution Engine Connection Failed: {e}")
 
                 with col_analyze:
-                    if st.button("🤖 Submit to AI Judge"):
+                  if st.button("🤖 Submit to AI Judge"):  
                     with st.spinner(f"Heizen is evaluating your {selected_lang} code... 🕵️‍♂️"):
                         analysis = evaluate_dsa_code(
                             active_prob.get("title", ""), 
