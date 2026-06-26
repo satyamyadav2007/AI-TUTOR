@@ -525,30 +525,45 @@ else:
 
                 with col_analyze:
                     if st.button("🤖 Submit to AI Judge"):
-                        if check_limit(): # 🛡️ Limit Checker
-                            with st.spinner(f"Heizen is evaluating your {selected_lang} code... 🕵️‍♂️"):
-                                analysis = evaluate_dsa_code(active_prob.get("title", ""), active_prob.get("description", ""), user_code, selected_lang)
-                                if analysis:
-                                    log_usage() # 🛡️ Log usage after success
-                                    st.markdown("---")
-                                    status_str = analysis.get('status', '')
-                                    status_color = "🟢" if "Accepted" in status_str else "🔴"
-                                    st.subheader(f"{status_color} Status: {status_str} (Score: {analysis.get('score', 'N/A')})")
-                                    
-                                    if "Accepted" in status_str:
-                                        st.session_state.dsa_solved[st.session_state.current_dsa_diff] += 1
-                                        st.balloons()
-                                    
-                                    m1, m2 = st.columns(2)
-                                    m1.metric("⏱️ Time Complexity", analysis.get('time_complexity', 'N/A'))
-                                    m2.metric("💾 Space Complexity", analysis.get('space_complexity', 'N/A'))
-                                    
-                                    st.info(f"**Edge Cases Checked:**\n{analysis.get('edge_cases', 'N/A')}")
-                                    st.warning(f"**Mentor's Detailed Feedback:**\n{analysis.get('detailed_feedback', '')}")
-                                    with st.expander("💡 View Highly Optimized Code"):
-                                        st.code(analysis.get('optimized_code', '// Not available'), language=lang_map[selected_lang])
-                                else:
-                                    st.error("AI Evaluation failed. Please try again.")
+                    with st.spinner(f"Heizen is evaluating your {selected_lang} code... 🕵️‍♂️"):
+                        analysis = evaluate_dsa_code(
+                            active_prob.get("title", ""), 
+                            active_prob.get("description", ""), 
+                            user_code,
+                            selected_lang
+                        )
+                        
+                        if analysis:
+                            log_usage() 
+                            st.markdown("---")
+                            
+                            # 1. Status Card
+                            status_str = analysis.get('status', 'Unknown')
+                            status_color = "🟢" if "Accepted" in status_str else "🔴"
+                            st.markdown(f"### {status_color} Verdict: **{status_str}**")
+                            
+                            # 2. Score & Complexities in Clean Columns
+                            c1, c2, c3 = st.columns(3)
+                            c1.metric("Score", f"{analysis.get('score', '0')}/100")
+                            c2.metric("Time", analysis.get('time_complexity', 'N/A'))
+                            c3.metric("Space", analysis.get('space_complexity', 'N/A'))
+                            
+                            st.markdown("---")
+                            
+                            # 3. User-Friendly Feedback Box
+                            st.markdown("#### 📝 Mentor's Feedback")
+                            st.info(analysis.get('detailed_feedback', 'No feedback available.'))
+                            
+                            # 4. Safe Expander for Optimized Code
+                            with st.expander("💡 View Highly Optimized Code (Click here)"):
+                                optimized = analysis.get('optimized_code', '// Not available')
+                                st.code(optimized, language=lang_map[selected_lang])
+                                
+                            if "Accepted" in status_str:
+                                st.balloons()
+                                
+                        else:
+                            st.error("AI Evaluation failed. Please try again.")
 
     # --- TAB 8: PLACEMENT PREDICTOR ---
     with tab8:
