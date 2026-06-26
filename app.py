@@ -190,12 +190,17 @@ else:
 st.sidebar.markdown("---")
 
 # Permanent Light Mode CSS
+# --- DYNAMIC THEME CSS (Auto Light/Dark Mode) ---
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} header {visibility: hidden;} footer {visibility: hidden;}
-    .stApp { background-color: #FFFFFF; color: #000000; }
+    
+    /* Buttons Styling (Blue-Green Gradient looks amazing on BOTH Dark & Light modes) */
     .stButton>button { background: linear-gradient(135deg, #4A90E2 0%, #50E3C2 100%); color: white; border-radius: 8px; border: none; font-weight: bold; }
-    div.stExpander > details > summary { color: #000000; }
+    
+    /* Improve Tab scrolling on mobile (Removed forced colors so Streamlit adapts automatically) */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; padding-bottom: 5px; }
+    button[data-baseweb="tab"] p { font-size: 16px !important; font-weight: 600 !important;}
     </style>
     """, unsafe_allow_html=True)
 
