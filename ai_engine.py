@@ -16,7 +16,7 @@ from models import QuestionModel
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=GEMINI_API_KEY)
 
-gemini_model = genai.GenerativeModel('gemini-pro')
+gemini_model = genai.GenerativeModel("gemini-2.5-flash")
 
 # ==========================================
 # 🧠 VECTOR DATABASE LOADER
@@ -260,7 +260,57 @@ def generate_pyq_variant(subject, topic, difficulty):
         # Yeh line asli error ko seedha screen par print karegi!
         st.error(f"🔍 API/CODE ERROR: {str(e)}")
         return None
-
+def generate_batch_pyq_variants(subject, topic, difficulty, num_questions):
+    """
+    Ek hi API call mein n-questions generate karne wala BATCH function.
+    Cost aur time dono bachata hai.
+    """
+    prompt = f"""
+    Act as an expert GATE CSE exam setter.
+    Create EXACTLY {num_questions} unique questions for the subject '{subject}' and topic '{topic}'.
+    The difficulty level MUST be: '{difficulty}'.
+    
+    STRICT RULES:
+    1. Return ONLY a valid JSON array of objects. Do not wrap it in markdown code blocks like ```json. 
+    2. Do not output any other text before or after the JSON array.
+    3. The JSON array must look exactly like this:
+    [
+        {{
+            "question": "Clear question statement here",
+            "options": ["Option A", "Option B", "Option C", "Option D"],
+            "answer": "Correct option exactly as written in the options list",
+            "explanation": "Detailed step-by-step logic",
+            "type": "MCQ",
+            "topic": "{topic}",
+            "difficulty": "{difficulty}"
+        }},
+        ... (repeat for {num_questions} questions)
+    ]
+    """
+    
+    try:
+        # Pura batch ek hi baar mein generate hoga!
+        response = gemini_model.generate_content(prompt)
+        text_resp = response.text.strip()
+        
+        # Clean up markdown formatting if Gemini mistakenly adds it
+        if text_resp.startswith("```json"):
+            text_resp = text_resp[7:]
+        if text_resp.startswith("```"):
+            text_resp = text_resp[3:]
+        if text_resp.endswith("```"):
+            text_resp = text_resp[:-3]
+            
+        import json
+        batch_questions = json.loads(text_resp.strip())
+        
+        if isinstance(batch_questions, list) and len(batch_questions) > 0:
+            return batch_questions
+        return []
+        
+    except Exception as e:
+        print(f"Batch Generation Error: {e}")
+        return []
 def generate_study_plan(elo_rating, weak_topics_dict, days=21):
     weaknesses = ", ".join([f"{t} ({c} mistakes)" for t, c in weak_topics_dict.items()])
     if not weaknesses: weaknesses = "No specific weak topics. Focus on overall GATE CSE syllabus."
