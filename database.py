@@ -105,9 +105,14 @@ def increment_usage(username):
 # 🧠 GLOBAL QUESTION BANK (CACHING SYSTEM)
 # ==========================================
 
+# ==========================================
+# 🧠 GLOBAL QUESTION BANK WITH USER HISTORY
+# ==========================================
+
 def init_question_bank():
     conn = sqlite3.connect('heizen.db')
     c = conn.cursor()
+    # Global Bank
     c.execute('''
         CREATE TABLE IF NOT EXISTS question_bank (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -117,10 +122,19 @@ def init_question_bank():
             question_data TEXT
         )
     ''')
+    # 🔥 Naya Table: User ne kaun sa question dekh liya hai track karne ke liye
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS user_history (
+            username TEXT,
+            question_id INTEGER,
+            PRIMARY KEY (username, question_id)
+        )
+    ''')
     conn.commit()
     conn.close()
 
-def save_questions_to_bank(subject, topic, difficulty, questions_list):
+def save_questions_to_bank(subject, topic, difficulty, questions_list, username):
+    """Saves new questions to global bank and marks them as SEEN for the current user"""
     try:
         conn = sqlite3.connect('heizen.db')
         c = conn.cursor()
@@ -128,32 +142,49 @@ def save_questions_to_bank(subject, topic, difficulty, questions_list):
         clean_top = topic.strip().lower()
         
         for q in questions_list:
+            # 1. Save to Global Bank
             c.execute("INSERT INTO question_bank (subject, topic, difficulty, question_data) VALUES (?, ?, ?, ?)", 
                       (clean_sub, clean_top, difficulty, json.dumps(q)))
+            new_q_id = c.lastrowid
+            
+            # 2. Automatically mark as SEEN for this specific user
+            c.execute("INSERT OR IGNORE INTO user_history (username, question_id) VALUES (?, ?)", 
+                      (username.strip(), new_q_id))
+                      
         conn.commit()
         conn.close()
     except Exception as e:
         print(f"Error saving to question bank: {e}")
 
-def get_cached_questions(subject, topic, difficulty, num_questions):
+def get_cached_questions(username, subject, topic, difficulty, num_questions):
+    """Fetches questions from DB that the CURRENT USER HAS NOT SEEN YET"""
     try:
         conn = sqlite3.connect('heizen.db')
         c = conn.cursor()
         clean_sub = subject.strip().lower()
         clean_top = topic.strip().lower()
         
+        # 🔥 Magic Query: NOT IN user_history ensures no duplicates for the same person
         c.execute('''
-            SELECT question_data FROM question_bank 
+            SELECT id, question_data FROM question_bank 
             WHERE subject=? AND topic=? AND difficulty=? 
+            AND id NOT IN (SELECT question_id FROM user_history WHERE username=?)
             ORDER BY RANDOM() LIMIT ?
-        ''', (clean_sub, clean_top, difficulty, num_questions))
+        ''', (clean_sub, clean_top, difficulty, username.strip(), num_questions))
         
         rows = c.fetchall()
-        conn.close()
         
         if rows and len(rows) == num_questions:
-            return [json.loads(row[0]) for row in rows]
-        return None 
+            # Agar enough unseen questions mil gaye, toh unhe is user ke liye SEEN mark kar do
+            for row in rows:
+                c.execute("INSERT OR IGNORE INTO user_history (username, question_id) VALUES (?, ?)", 
+                          (username.strip(), row[0]))
+            conn.commit()
+            conn.close()
+            return [json.loads(row[1]) for row in rows]
+            
+        conn.close()
+        return None # Agar unseen questions kam hain, toh Gemini naye generate karega
     except Exception as e:
         print(f"Cache fetch error: {e}")
         return None

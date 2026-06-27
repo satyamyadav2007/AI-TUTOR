@@ -844,6 +844,7 @@ else:
                     
                     # Sirf EK API Call! Koi loop nahi, koi time.sleep nahi!
                     batch_data = generate_batch_pyq_variants(
+                        username=st.session_state.username,
                         subject=st.session_state.subject, 
                         topic=st.session_state.topic, 
                         difficulty=difficulty,

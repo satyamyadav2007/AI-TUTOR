@@ -261,18 +261,17 @@ def generate_pyq_variant(subject, topic, difficulty):
         # Yeh line asli error ko seedha screen par print karegi!
         st.error(f"🔍 API/CODE ERROR: {str(e)}")
         return None
-def generate_batch_pyq_variants(subject, topic, difficulty, num_questions):
+def generate_batch_pyq_variants(username, subject, topic, difficulty, num_questions):
     """
-    Priority 3 & 4: Pehle Cache (Database) check karega. 
-    Agar miss hua, tabhi Gemini ko call karega aur future ke liye save kar lega!
+    Deduplicated Batch Function: Takes username to filter out already seen questions.
     """
-    # 🔍 STEP 1: CHECK CACHE FIRST (0 API Cost)
-    cached_data = get_cached_questions(subject, topic, difficulty, num_questions)
+    # 🔍 1. Check Cache with Username filtering
+    cached_data = get_cached_questions(username, subject, topic, difficulty, num_questions)
     if cached_data:
-        print("🟢 CACHE HIT! Zero API Cost. Fast Loading.")
+        print(f"🟢 CACHE HIT for {username}! Shuffled & Unseen questions served.")
         return cached_data
         
-    print("🔴 CACHE MISS! Calling Gemini API...")
+    print(f"🔴 CACHE MISS for {username}! Generating brand new variants from Gemini...")
     
     # 🤖 STEP 2: GEMINI API CALL (Pichla wala logic)
     prompt = f"""
