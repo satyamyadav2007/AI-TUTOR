@@ -266,6 +266,8 @@ def generate_batch_pyq_variants(username, subject, topic, difficulty, num_questi
     Deduplicated Batch Function: Takes username to filter out already seen questions.
     """
     # 🔍 1. Check Cache with Username filtering
+    from database import get_cached_questions, save_questions_to_bank
+    
     cached_data = get_cached_questions(username, subject, topic, difficulty, num_questions)
     if cached_data:
         print(f"🟢 CACHE HIT for {username}! Shuffled & Unseen questions served.")
@@ -273,7 +275,7 @@ def generate_batch_pyq_variants(username, subject, topic, difficulty, num_questi
         
     print(f"🔴 CACHE MISS for {username}! Generating brand new variants from Gemini...")
     
-    # 🤖 STEP 2: GEMINI API CALL (Pichla wala logic)
+    # 🤖 2. THE PROMPT (No shortcuts here)
     prompt = f"""
     Act as an expert GATE CSE exam setter.
     Create EXACTLY {num_questions} unique questions for the subject '{subject}' and topic '{topic}'.
@@ -300,6 +302,7 @@ def generate_batch_pyq_variants(username, subject, topic, difficulty, num_questi
         response = gemini_model.generate_content(prompt)
         text_resp = response.text.strip()
         
+        # 🧹 3. CLEANUP MARKDOWN
         if text_resp.startswith("```json"):
             text_resp = text_resp[7:]
         if text_resp.startswith("```"):
@@ -311,11 +314,10 @@ def generate_batch_pyq_variants(username, subject, topic, difficulty, num_questi
         batch_questions = json.loads(text_resp.strip())
         
         if isinstance(batch_questions, list) and len(batch_questions) > 0:
-            # 💾 STEP 3: SAVE TO CACHE FOR FUTURE USERS
-            save_questions_to_bank(subject, topic, difficulty, batch_questions)
+            # 💾 4. Save to Bank with username tracking
+            save_questions_to_bank(subject, topic, difficulty, batch_questions, username)
             return batch_questions
         return []
-        
     except Exception as e:
         print(f"Batch Generation Error: {e}")
         return []
